@@ -113,7 +113,10 @@ public class MainFrame extends JFrame {
 
         // Logger Subscription
         AppLogger.addListener(evt -> {
-            logPanel.append(evt.getPropertyName(), (String) evt.getNewValue());
+            String type = evt.getPropertyName();
+            if ("INFO".equals(type) || "ERROR".equals(type)) {
+                logPanel.append(type, (String) evt.getNewValue());
+            }
         });
 
         // Resize Listener for Dynamic Logger Visibility
