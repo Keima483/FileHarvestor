@@ -7,7 +7,6 @@ import java.time.format.DateTimeFormatter;
 
 public class AppLogger {
     public enum Level { INFO, ERROR }
-
     private static final PropertyChangeSupport support = new PropertyChangeSupport(AppLogger.class);
     private static final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
@@ -15,7 +14,10 @@ public class AppLogger {
         String timestamp = LocalTime.now().format(timeFormatter);
         String formattedMessage = String.format("[%s] %s: %s", timestamp, level, message);
 
-        // Fire event to anyone listening (MainFrame)
+        // This is what shows in your terminal
+        System.out.println("DEBUG_LOG: " + formattedMessage);
+
+        // This is what SHOULD show in your UI
         support.firePropertyChange(level.name(), null, formattedMessage);
     }
 

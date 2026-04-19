@@ -1,42 +1,33 @@
 package com.keima.ui.common;
 
 import javax.swing.*;
-import javax.swing.text.*;
 import java.awt.*;
 
 public class LogPanel extends JPanel {
-    private final JTextPane logPane;
+    private final JTextArea textArea;
 
     public LogPanel() {
         setLayout(new BorderLayout());
         setOpaque(false);
 
-        logPane = new JTextPane();
-        logPane.setEditable(false);
-        logPane.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        logPane.setBackground(new Color(20, 20, 20)); // Dark background
+        textArea = new JTextArea();
+        textArea.setEditable(false);
+        textArea.setBackground(new Color(20, 20, 20));
+        textArea.setForeground(Color.GREEN);
+        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
 
-        JScrollPane scrollPane = new JScrollPane(logPane);
+        JScrollPane scrollPane = new JScrollPane(textArea);
         scrollPane.setBorder(null);
+        // Force a minimum size so GridBagLayout doesn't squash it to 0px
+        scrollPane.setPreferredSize(new Dimension(400, 250));
+
         add(scrollPane, BorderLayout.CENTER);
     }
 
-    public void append(String type, String message) {
+    public void append(String message) {
         SwingUtilities.invokeLater(() -> {
-            Color color = type.equals("INFO") ? new Color(0, 255, 65) : new Color(255, 80, 80);
-            appendToPane(message + "\n", color);
+            textArea.append(message + "\n");
+            textArea.setCaretPosition(textArea.getDocument().getLength());
         });
-    }
-
-    private void appendToPane(String msg, Color c) {
-        StyleContext sc = StyleContext.getDefaultStyleContext();
-        AttributeSet aset = sc.addAttribute(SimpleAttributeSet.EMPTY, StyleConstants.Foreground, c);
-
-        int len = logPane.getDocument().getLength();
-        logPane.setSelectionStart(len);
-        logPane.setSelectionEnd(len);
-        logPane.setCharacterAttributes(aset, false);
-        logPane.replaceSelection(msg);
-        logPane.setCaretPosition(logPane.getDocument().getLength());
     }
 }
