@@ -36,7 +36,6 @@ public class MainFrame extends JFrame {
     private final JButton startButton;
     private final JPanel glassPane;
     private final LogPanel logPanel;
-    private final JPanel logCard;
 
     private ProcessingManager currentManager = null;
     private Thread managerThread = null;
@@ -101,41 +100,29 @@ public class MainFrame extends JFrame {
         gbc.gridy = 1;
         content.add(createCardWrapper(dateTimePanel, "Date & Time Configuration"), gbc);
 
+        // 1. Initialize the panel
         logPanel = new LogPanel();
-        logCard = createCardWrapper(logPanel, "Live Console Output");
-        logCard.setVisible(false); // Initially hidden
 
+// 2. Add it to your GridBagLayout content panel
         gbc.gridy = 2;
-        gbc.weighty = 1.0; // Consumes remaining space
+        gbc.weighty = 1.0; // This makes it fill the vertical space
         gbc.fill = GridBagConstraints.BOTH;
         gbc.insets = new Insets(0, 0, 10, 0);
+
+// Wrap in your existing card style
+        JPanel logCard = createCardWrapper(logPanel, "Live Console Output");
         content.add(logCard, gbc);
 
-        // Logger Subscription
+// 3. Register the listener at the VERY END of the constructor
         AppLogger.addListener(evt -> {
-            String type = evt.getPropertyName();
-            if ("INFO".equals(type) || "ERROR".equals(type)) {
-                logPanel.append(type, (String) evt.getNewValue());
-            }
+            logPanel.append(evt.getPropertyName(), (String) evt.getNewValue());
         });
 
-        // Resize Listener for Dynamic Logger Visibility
-        this.addComponentListener(new java.awt.event.ComponentAdapter() {
-            @Override
-            public void componentResized(java.awt.event.ComponentEvent e) {
-                // If the window is too short (e.g., < 600), hide it to save space
-                boolean shouldShow = getHeight() > 600;
-                if (logCard.isVisible() != shouldShow) {
-                    logCard.setVisible(shouldShow);
-                    revalidate();
-                    repaint();
-                }
-            }
-        });
-
-        processButton = new PrimaryButton("Process");
+        // Process button
+        processButton = new PrimaryButton("Process"); // Or your custom StyledButton
         processButton.addActionListener(e -> toggleProcessing());
 
+        // Bottom Action Bar ---
         startButton = new PrimaryButton("Start");
         startButton.addActionListener(e -> onStart());
 
@@ -184,38 +171,50 @@ public class MainFrame extends JFrame {
     // --- UI Components ---
 
     private JPanel createCardWrapper(JPanel internalPanel, String title) {
+        // 1. Main Card Panel
         JPanel card = new JPanel(new BorderLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // Background
                 g2.setColor(UIConfig.CARD_BG);
                 g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, UIConfig.ROUNDING_LARGE, UIConfig.ROUNDING_LARGE);
+
+                // Border
                 g2.setColor(UIConfig.CARD_BORDER);
                 g2.setStroke(new BasicStroke(1.2f));
                 g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, UIConfig.ROUNDING_LARGE, UIConfig.ROUNDING_LARGE);
+
                 g2.dispose();
             }
         };
         card.setOpaque(false);
+        // Outer padding to prevent internal components from touching the rounded border
         card.setBorder(new EmptyBorder(20, 25, 25, 25));
 
+        // 2. Header Section (Title + Separator)
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
 
         JLabel titleLabel = new JLabel(title);
         titleLabel.setFont(UIConfig.FONT_TITLE);
         titleLabel.setForeground(UIConfig.TEXT_DARK);
+        titleLabel.setBorder(new EmptyBorder(0, 0, 5, 0)); // Space below text
 
         JSeparator sep = new JSeparator();
         sep.setForeground(UIConfig.CARD_BORDER);
-        sep.setBackground(UIConfig.CARD_BORDER);
+        sep.setBackground(UIConfig.CARD_BORDER); // Ensure it's visible
 
         header.add(titleLabel, BorderLayout.NORTH);
         header.add(sep, BorderLayout.SOUTH);
-        header.setBorder(new EmptyBorder(0, 0, 15, 0));
+        header.setBorder(new EmptyBorder(0, 0, 15, 0)); // Padding between header and content
 
+        // 3. Assemble
         card.add(header, BorderLayout.NORTH);
+
+        // Ensure the internal panel is truly transparent
         internalPanel.setOpaque(false);
         card.add(internalPanel, BorderLayout.CENTER);
 
@@ -303,7 +302,7 @@ public class MainFrame extends JFrame {
     private void shutdownMonitors() {
         for(var item: runningMonitors.entrySet()) {
             item.getValue().interrupt();
-            AppLogger.log(AppLogger.Level.ERROR, item.getKey() + " Interrupted");
+//            AppLogger.log(AppLogger.Level.ERROR, item.getKey() + " Interrupted");
         }
         runningMonitors.clear();
     }
