@@ -16,10 +16,6 @@ import com.keima.ui.folderPanel.StyledFolderButton;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -50,7 +46,7 @@ public class MainFrame extends JFrame {
     public MainFrame() {
         super("FileHarvestor");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(1000, 750); // Slightly taller for breathing room
+        setSize(1000, 850); // Increased height to accommodate the console comfortably
         setLocationRelativeTo(null);
 
         // --- 1. Root Setup ---
@@ -58,7 +54,7 @@ public class MainFrame extends JFrame {
         root.setBackground(UIConfig.APP_BG);
         setContentPane(root);
 
-        // --- 2. GlassPane Setup (Dimmer & Popups) ---
+        // --- 2. GlassPane Setup ---
         glassPane = new JPanel(null) {
             @Override
             protected void paintComponent(Graphics g) {
@@ -69,14 +65,6 @@ public class MainFrame extends JFrame {
         };
         glassPane.setOpaque(false);
         glassPane.setVisible(false);
-        glassPane.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                if (currentPopup != null && !currentPopup.getBounds().contains(e.getPoint())) {
-                    hidePopup();
-                }
-            }
-        });
         setGlassPane(glassPane);
 
         // --- 3. Content Layout ---
@@ -100,35 +88,27 @@ public class MainFrame extends JFrame {
         gbc.gridy = 1;
         content.add(createCardWrapper(dateTimePanel, "Date & Time Configuration"), gbc);
 
-        // 1. Initialize LogPanel
+        // --- 4. THE LIVE CONSOLE FIX ---
         this.logPanel = new LogPanel();
+        // Force the panel to have a white background internally
+        this.logPanel.setBackground(Color.WHITE);
 
-        // 2. Wrap it in your Card style
         JPanel logCard = createCardWrapper(this.logPanel, "Live Console Output");
 
-        // 3. Add to Content with GridBag
         GridBagConstraints gbcLog = new GridBagConstraints();
         gbcLog.gridx = 0;
-        gbcLog.gridy = 2; // Position it below your settings
+        gbcLog.gridy = 2;
         gbcLog.weightx = 1.0;
-        gbcLog.weighty = 1.0; // CRITICAL: This makes the logger fill the screen
+        gbcLog.weighty = 1.0; // Consumes remaining space
         gbcLog.fill = GridBagConstraints.BOTH;
         gbcLog.insets = new Insets(5, 0, 10, 0);
 
         content.add(logCard, gbcLog);
 
-        // 4. Register the listener AT THE VERY END
-        AppLogger.addListener(evt -> {
-            if (this.logPanel != null) {
-                this.logPanel.append((String) evt.getNewValue());
-            }
-        });
-
-        // Process button
-        processButton = new PrimaryButton("Process"); // Or your custom StyledButton
+        // --- 5. Action Bar ---
+        processButton = new PrimaryButton("Process");
         processButton.addActionListener(e -> toggleProcessing());
 
-        // Bottom Action Bar ---
         startButton = new PrimaryButton("Start");
         startButton.addActionListener(e -> onStart());
 
@@ -140,16 +120,55 @@ public class MainFrame extends JFrame {
         root.add(content, BorderLayout.CENTER);
         root.add(actionBar, BorderLayout.SOUTH);
 
-        // Window Lifecycle
-        addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) { shutdownMonitors(); }
+        // Register the listener AFTER components are added to the layout
+        AppLogger.addListener(evt -> {
+            if (this.logPanel != null) {
+                this.logPanel.append(evt.getPropertyName(), (String) evt.getNewValue());
+            }
         });
 
         setVisible(true);
     }
 
-    // --- Popup / Dimmer Logic ---
+    private JPanel createCardWrapper(JPanel internalPanel, String title) {
+        JPanel card = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(UIConfig.CARD_BG);
+                g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, UIConfig.ROUNDING_LARGE, UIConfig.ROUNDING_LARGE);
+                g2.setColor(UIConfig.CARD_BORDER);
+                g2.setStroke(new BasicStroke(1.2f));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, UIConfig.ROUNDING_LARGE, UIConfig.ROUNDING_LARGE);
+                g2.dispose();
+            }
+        };
+        card.setOpaque(false);
+        card.setBorder(new EmptyBorder(20, 25, 25, 25));
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(UIConfig.FONT_TITLE);
+        titleLabel.setForeground(UIConfig.TEXT_DARK);
+
+        JSeparator sep = new JSeparator();
+        header.add(titleLabel, BorderLayout.NORTH);
+        header.add(sep, BorderLayout.SOUTH);
+        header.setBorder(new EmptyBorder(0, 0, 15, 0));
+
+        card.add(header, BorderLayout.NORTH);
+        if (!(internalPanel instanceof LogPanel)) {
+            internalPanel.setOpaque(false);
+        } else {
+            internalPanel.setOpaque(true); // Ensure the white background is drawn
+        }
+        card.add(internalPanel, BorderLayout.CENTER);
+
+        return card;
+    }
+    // --- Logic ---
 
     public void setupDimmer() {
         glassPane.setVisible(true);
@@ -173,61 +192,6 @@ public class MainFrame extends JFrame {
         glassPane.removeAll();
         currentPopup = null;
     }
-
-    // --- UI Components ---
-
-    private JPanel createCardWrapper(JPanel internalPanel, String title) {
-        // 1. Main Card Panel
-        JPanel card = new JPanel(new BorderLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                // Background
-                g2.setColor(UIConfig.CARD_BG);
-                g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, UIConfig.ROUNDING_LARGE, UIConfig.ROUNDING_LARGE);
-
-                // Border
-                g2.setColor(UIConfig.CARD_BORDER);
-                g2.setStroke(new BasicStroke(1.2f));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, UIConfig.ROUNDING_LARGE, UIConfig.ROUNDING_LARGE);
-
-                g2.dispose();
-            }
-        };
-        card.setOpaque(false);
-        // Outer padding to prevent internal components from touching the rounded border
-        card.setBorder(new EmptyBorder(20, 25, 25, 25));
-
-        // 2. Header Section (Title + Separator)
-        JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(false);
-
-        JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(UIConfig.FONT_TITLE);
-        titleLabel.setForeground(UIConfig.TEXT_DARK);
-        titleLabel.setBorder(new EmptyBorder(0, 0, 5, 0)); // Space below text
-
-        JSeparator sep = new JSeparator();
-        sep.setForeground(UIConfig.CARD_BORDER);
-        sep.setBackground(UIConfig.CARD_BORDER); // Ensure it's visible
-
-        header.add(titleLabel, BorderLayout.NORTH);
-        header.add(sep, BorderLayout.SOUTH);
-        header.setBorder(new EmptyBorder(0, 0, 15, 0)); // Padding between header and content
-
-        // 3. Assemble
-        card.add(header, BorderLayout.NORTH);
-
-        // Ensure the internal panel is truly transparent
-        internalPanel.setOpaque(false);
-        card.add(internalPanel, BorderLayout.CENTER);
-
-        return card;
-    }
-
-    // --- Logic ---
 
     private void createSupportFolders() throws IOException {
         for(var folder: AppConfig.PROTO_FOLDERS.values()) {
