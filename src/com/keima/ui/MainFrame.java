@@ -100,22 +100,28 @@ public class MainFrame extends JFrame {
         gbc.gridy = 1;
         content.add(createCardWrapper(dateTimePanel, "Date & Time Configuration"), gbc);
 
-        // 1. Initialize the panel
-        logPanel = new LogPanel();
+        // 1. Initialize LogPanel
+        this.logPanel = new LogPanel();
 
-// 2. Add it to your GridBagLayout content panel
-        gbc.gridy = 2;
-        gbc.weighty = 1.0; // This makes it fill the vertical space
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.insets = new Insets(0, 0, 10, 0);
+        // 2. Wrap it in your Card style
+        JPanel logCard = createCardWrapper(this.logPanel, "Live Console Output");
 
-// Wrap in your existing card style
-        JPanel logCard = createCardWrapper(logPanel, "Live Console Output");
-        content.add(logCard, gbc);
+        // 3. Add to Content with GridBag
+        GridBagConstraints gbcLog = new GridBagConstraints();
+        gbcLog.gridx = 0;
+        gbcLog.gridy = 2; // Position it below your settings
+        gbcLog.weightx = 1.0;
+        gbcLog.weighty = 1.0; // CRITICAL: This makes the logger fill the screen
+        gbcLog.fill = GridBagConstraints.BOTH;
+        gbcLog.insets = new Insets(5, 0, 10, 0);
 
-// 3. Register the listener at the VERY END of the constructor
+        content.add(logCard, gbcLog);
+
+        // 4. Register the listener AT THE VERY END
         AppLogger.addListener(evt -> {
-            logPanel.append(evt.getPropertyName(), (String) evt.getNewValue());
+            if (this.logPanel != null) {
+                this.logPanel.append((String) evt.getNewValue());
+            }
         });
 
         // Process button

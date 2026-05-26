@@ -27,9 +27,17 @@ public class ProcessingManager implements Runnable {
             if (files != null && files.length > 0) {
                 for (File f : files) {
                     if (!running.get()) break;
+
                     String fileName = f.getName();
-                    if(processed.add(fileName)) {
-                        workerPool.submit(new FileProcessorWorker(f, cleanFolder, attachFolder));
+
+                    // Check if file tracking table already has the element
+                    if (!processed.contains(fileName)) {
+                        // FIX: Verify file is completely written on disk before submitting task
+                        if (f.exists() && isFileReady(f)) {
+                            if (processed.add(fileName)) {
+                                workerPool.submit(new FileProcessorWorker(f, cleanFolder, attachFolder));
+                            }
+                        }
                     }
                 }
             }
@@ -41,6 +49,21 @@ public class ProcessingManager implements Runnable {
             }
         }
         workerPool.shutdownNow();
+    }
+
+    // FIX: Guard logic checking if file length is stable (not actively written to by a separate thread)
+    private boolean isFileReady(File file) {
+        long fileLengthBefore = file.length();
+        if (fileLengthBefore == 0) {
+            return false; // File is initialized but has empty contents
+        }
+        try {
+            Thread.sleep(200); // Stability Window check
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+        return file.exists() && file.length() == fileLengthBefore;
     }
 
     public void stop() {

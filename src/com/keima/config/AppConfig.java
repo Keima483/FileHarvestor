@@ -26,10 +26,26 @@ public class AppConfig  {
     }
 
     public static final String[] SOURCE_FOLDERS = {
-            "ADON","CVBX","GCPT","JXYL","KNCF",
-            "MGLI","MVNT","NQSQ","NRWT","QEZJ",
-            "QTTS","QUEI","RCZR","TSJL","TSKC",
-            "UIDM","WBZB","WMUH","XCAF","ZKGM"
+            "AHDC",
+            "BILE",
+            "DXIR",
+            "ESVJ",
+            "KJVH",
+            "KUWZ",
+            "LKHD",
+            "LQZT",
+            "LUML",
+            "LVRM",
+            "NCYB",
+            "NTAU",
+            "NVXH",
+            "PRIE",
+            "SHHR",
+            "TLWP",
+            "UINC",
+            "VLZE",
+            "XNMF",
+            "ZYCO"
     };
 
 }

@@ -3,7 +3,6 @@ package com.keima.service;
 import jakarta.mail.*;
 import jakarta.mail.internet.*;
 import java.io.*;
-import java.util.Properties;
 
 public class FileProcessorWorker implements Runnable {
     private final File sourceFile;
@@ -24,6 +23,12 @@ public class FileProcessorWorker implements Runnable {
                 MimeMessage message = new MimeMessage(session, is);
                 processPart(message);
             }
+
+            // Post-Processing: Safely delete or move the file out of the inbound folder
+            // to keep the folder clear and prevent tracking overhead memory issues.
+            if (sourceFile.exists()) {
+                sourceFile.delete();
+            }
         } catch (Exception e) {
             System.err.println("Error processing " + sourceFile.getName() + ": " + e.getMessage());
         }
@@ -31,13 +36,25 @@ public class FileProcessorWorker implements Runnable {
 
     private void processPart(Part part) throws Exception {
         String contentType = part.getContentType().toLowerCase();
-        Object content = part.getContent();
+        Object content;
+
+        // Safe Extraction: Resolve nested message layers cleanly to prevent ClassCastException
+        try {
+            content = part.getContent();
+        } catch (Exception e) {
+            System.err.println("Skipping item component due to content extraction error: " + e.getMessage());
+            return;
+        }
 
         if (content instanceof Multipart) {
             Multipart mp = (Multipart) content;
             for (int i = 0; i < mp.getCount(); i++) {
                 processPart(mp.getBodyPart(i));
             }
+        }
+        // FIX: Handle embedded nested message parts separately instead of treating them as BodyParts
+        else if (content instanceof MimeMessage) {
+            processPart((MimeMessage) content);
         }
         // 1. JSON handling (Clean_HTTP/json)
         else if (contentType.contains("application/json")) {
@@ -52,10 +69,14 @@ public class FileProcessorWorker implements Runnable {
         }
         // 3. Greedy Extraction (Attachments/type)
         else {
-            String subFolderName = getSubfolderName(part);
-            String fileName = part.getFileName();
-            if (fileName == null) fileName = "part_" + System.currentTimeMillis();
-            saveToSubfolder(part, attachFolder, subFolderName, fileName);
+            String disposition = part.getDisposition();
+            // Verify if it's explicitly structured as an asset attachment or inline payload
+            if (Part.ATTACHMENT.equalsIgnoreCase(disposition) || Part.INLINE.equalsIgnoreCase(disposition) || part.getFileName() != null) {
+                String subFolderName = getSubfolderName(part);
+                String fileName = part.getFileName();
+                if (fileName == null) fileName = "part_" + System.currentTimeMillis();
+                saveToSubfolder(part, attachFolder, subFolderName, fileName);
+            }
         }
     }
 
@@ -87,7 +108,6 @@ public class FileProcessorWorker implements Runnable {
     }
 
     private String getSubfolderName(Part part) throws MessagingException {
-        // Takes "image/png; name=..." and returns "png"
         try {
             String ct = part.getContentType().split(";")[0].toLowerCase();
             if (ct.contains("/")) {
